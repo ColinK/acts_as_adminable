@@ -12,5 +12,6 @@ rescue
     t.text   :value
     t.timestamps
   end
+  ActiveRecord::Migration.add_index(:adminable_text, :content_key, {:unique => true})
   puts "  done"
 end
