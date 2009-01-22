@@ -1,0 +1,20 @@
+parts:
+	install script which will generate the model's table if it doesn't exist
+	a model
+	a view helper which displays one of two ways based on a cookie
+	a controller to intercept change requests
+
+
+ActsAsAdminable
+===============
+
+Introduction goes here.
+
+
+Example
+=======
+
+Example goes here.
+
+
+Copyright (c) 2009 [name of plugin creator], released under the MIT license
