@@ -1,20 +1,21 @@
-parts:
-	install script which will generate the model's table if it doesn't exist
-	a model
-	a view helper which displays one of two ways based on a cookie
-	a controller to intercept change requests
-
-
 ActsAsAdminable
 ===============
 
-Introduction goes here.
-
+ActsAsAdminable extends the content_tag text helper by allowing you to specify one extra option in the hash, ":key => 'SomeUniqueString'".  This will load the content of the element from your database, and, if the "admin" criteria are met, will also let you ajax-edit the contents of the object by clicking on it.
 
 Example
 =======
 
-Example goes here.
+In your view, merely do this:
+<%= content_tag :h1, 'A Title Goes Here', :key => 'title_h1' %>
 
+"A title goes here" is the default text that will be displayed the very first time (and it can be a useful visual placeholder in your code).  You could also pass in nil for that argument, in which case the text would be 'Click to Edit'.
 
-Copyright (c) 2009 [name of plugin creator], released under the MIT license
+The :key argument must be a globally unique string.  It's important that the content_tag also have a unique "id" HTML attribute, although ActsAsAdminable will use the :key for that purpose, if you didn't specify a different one.  So also make sure that you either specify a unique "id" HTML attribute, or that :key does not collide with any other element's "id" attribute.
+
+The editable form which replaces your element will use either a <textarea> or an <input type="text"> tag, depending on the original tag type.
+:h[1..6], :b, :i, :u, :span, and :a will result in a single-line <input> tag, and
+:div, :td and :blockquote will result in a textarea.
+All other tags will result in a textarea.
+
+Copyright (c) 2009 The Killswitch Collective, released under the MIT license
