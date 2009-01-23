@@ -47,28 +47,26 @@ module ActsAsAdminable
         html_contents = markdown(db_value).gsub(/^<p>(.*)<\/p>$/,'\1').gsub(/  /,'&nbsp;&nbsp;') || content_or_options_with_block
 
         if is_adminable?
-          
-          options[:onmouseover]='window.temp_style_background=this.style.backgroundColor; this.style.backgroundColor = "#FFD";'
+
+          options[:onmouseover]='window.temp_style_background=this.style.backgroundColor; this.style.backgroundColor = "#CCE";'
           options[:onmouseout]='this.style.backgroundColor=window.temp_style_background; window.temp_style_background = undefined;'
-          options[:onclick]="s=this; f=$('#{key}_form'); t=$('#{key}_field'); p=s.cumulativeOffset();  f.style.position='absolute'; f.style.left=p[0]+'px'; f.style.top=p[1]+'px'; d=s.getDimensions(); t.style.width=d.width+'px'; t.style.height=d.height+'px'; window.style_display=s.style.display; s.style.visibility='hidden'; f.style.display='block';"
+
+#this one works great in FF and Safari, but that's it
+#         options[:onclick]="s=this; f=$('#{key}_form'); t=$('#{key}_field'); p=s.cumulativeOffset();  f.style.position='absolute'; f.style.left=p[0]+'px'; f.style.top=p[1]+'px'; d=s.getDimensions(); t.style.width=d.width+'px'; t.style.height=d.height+'px'; window.style_display=s.style.display; s.style.visibility='hidden'; f.style.display='block';"
+
+          options[:onclick]="f=$('#{key}_form'); v=document.viewport; o=v.getScrollOffsets(); h=v.getHeight(); w=v.getWidth(); f.style.left=o[0]+Math.round(w/3)+'px'; f.style.top=o[1]+Math.round(h/3)+'px'; f.style.width=Math.round(w/3)+'px'; f.style.height=Math.round(h/3)+'px'; f.style.display='block';"
+
           options[:style] = (options[:style] || options['style']).to_s + '; cursor: pointer'
           
-          #which tags get edited by an INPUT, and which by a TEXTAREA
-          if [:h1, :h2, :h3, :h4, :h5, :h6, :span, :b, :i, :u, :em, :strong].include?(name)
-            text_input_html = text_field_tag(:value, (db_contents.nil? ? '' : db_contents["value"]),  :id => key+'_field')
-          elsif [:div, :td, :th, :pre, :p, :li, :blockquote].include?(name)
-            text_input_html = text_area_tag(:value, (db_contents.nil? ? '' : db_contents["value"]),  :id => key+'_field')
-          else
-            text_input_html = text_area_tag(:value, (db_contents.nil? ? '' : db_contents["value"]),  :id => key+'_field')
-          end
+          text_input_html = text_area_tag(:value, (db_contents.nil? ? '' : db_contents["value"]),  :size => '40x10', :id => key+'_field', :style => 'width: 100%; height: 85%;')
           
           #For some reason, this block prints immediately.  So no need to concatenate with our return value or anything like that
-          form_remote_tag :url => '/admin/save_adminable_text', :html => {:style => 'display: none;', :id => key+'_form'} do
+          form_remote_tag :url => '/admin/save_adminable_text', :html => {:style => 'display: none;', :id => key+'_form', :style => "position: absolute; z-index: 10; background-color: white; border: solid blue 2px; display: none; padding: 8px;"  } do
             hidden_field_tag(:content_key, key)     +
             hidden_field_tag(:object_id, object_id) +
             text_input_html +
-            submit_tag('Save Text', :style => 'position: absolute; right: 0px; bottom: -25px;') +
-            button_to_function('Cancel',"$('#{key}_form').style.display='none'; $('#{key}').style.visibility='visible'", :style => 'position: absolute; right: 100px; bottom: -25px;')
+            submit_tag('Save Text', :style => 'position: absolute; right: 10px; bottom: 10px;') +
+            button_to_function('Cancel',"$('#{key}_form').style.display='none'; $('#{key}').style.visibility='visible'", :style => 'position: absolute; right: 100px; bottom: 10px;')
           end
 
         end
@@ -108,7 +106,6 @@ module ActsAsAdminable
         render :update do |page|
           page.replace_html key, markdown(params[:value]).gsub(/^<p>(.*)<\/p>$/,'\1').gsub(/  /,'&nbsp;&nbsp;')
           page << "$('#{key}_form').style.display='none'"
-          page << "$('#{key}').style.visibility='visible'"
         end
       else
         render :nothing => true
