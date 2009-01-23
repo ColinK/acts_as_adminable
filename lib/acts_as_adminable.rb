@@ -65,8 +65,8 @@ module ActsAsAdminable
             hidden_field_tag(:content_key, key)     +
             hidden_field_tag(:object_id, object_id) +
             text_input_html +
-            submit_tag('Save Text', :style => 'position: absolute; right: 10px; bottom: 10px;') +
-            button_to_function('Cancel',"$('#{key}_form').style.display='none'; $('#{key}').style.visibility='visible'", :style => 'position: absolute; right: 100px; bottom: 10px;')
+            submit_tag('Save Text', :style => 'position: absolute; right: 10px; bottom: 10px; width: 80px;') +
+            button_to_function('Cancel',"$('#{key}_form').style.display='none'; $('#{key}').style.visibility='visible'", :style => 'position: absolute; right: 100px; bottom: 10px; width: 80px;')
           end
 
         end
