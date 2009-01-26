@@ -13,9 +13,6 @@ module ActsAsAdminable
         @is_adminable = options.has_key?(:if) ? options[:if].call : true
         self.class_eval "def is_adminable?; #{@is_adminable.to_s}; end"
       end
-#      def is_adminable?
-#        @is_adminable
-#      end
     end
   end
 
@@ -24,7 +21,7 @@ module ActsAsAdminable
       base.send :alias_method_chain, :content_tag, :adminable
     end
     def is_adminable?
-      controller.is_adminable?
+      (controller.methods.include? "is_adminable?") ? controller.is_adminable? : false
     end
     def content_tag_with_adminable(name, content_or_options_with_block = nil, options = nil, escape = true, &block)
       if block_given?
@@ -51,9 +48,10 @@ module ActsAsAdminable
           options[:onmouseover]='window.temp_style_background=this.style.backgroundColor; this.style.backgroundColor = "#CCE";'
           options[:onmouseout]='this.style.backgroundColor=window.temp_style_background; window.temp_style_background = undefined;'
 
-#this one works great in FF and Safari, but that's it
-#         options[:onclick]="s=this; f=$('#{key}_form'); t=$('#{key}_field'); p=s.cumulativeOffset();  f.style.position='absolute'; f.style.left=p[0]+'px'; f.style.top=p[1]+'px'; d=s.getDimensions(); t.style.width=d.width+'px'; t.style.height=d.height+'px'; window.style_display=s.style.display; s.style.visibility='hidden'; f.style.display='block';"
+          #this one is awesome in FF and Safari, but totally broken in IE (can't get width or position of inline elements)
+          #options[:onclick]="s=this; f=$('#{key}_form'); t=$('#{key}_field'); p=s.cumulativeOffset();  f.style.position='absolute'; f.style.left=p[0]+'px'; f.style.top=p[1]+'px'; d=s.getDimensions(); t.style.width=d.width+'px'; t.style.height=d.height+'px'; window.style_display=s.style.display; s.style.visibility='hidden'; f.style.display='block';"
 
+          #this one's less elegant; a modal AJAX popupin the center of the browser window
           options[:onclick]="f=$('#{key}_form'); v=document.viewport; o=v.getScrollOffsets(); h=v.getHeight(); w=v.getWidth(); f.style.left=o[0]+Math.round(w/3)+'px'; f.style.top=o[1]+Math.round(h/3)+'px'; f.style.width=Math.round(w/3)+'px'; f.style.height=Math.round(h/3)+'px'; f.style.display='block';"
 
           options[:style] = (options[:style] || options['style']).to_s + '; cursor: pointer'
