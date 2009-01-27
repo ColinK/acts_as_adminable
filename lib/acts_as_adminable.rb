@@ -9,9 +9,14 @@ module ActsAsAdminable
     end
     module ClassMethods
       def acts_as_adminable(options = {})
-        RAILS_DEFAULT_LOGGER.debug "Got here, options = #{options.inspect}"
-        @is_adminable = options.has_key?(:if) ? options[:if].call : true
-        self.class_eval "def is_adminable?; #{@is_adminable.to_s}; end"
+        define_method :page_is_adminable? do
+          options.has_key?(:if) ? true : options[:id].call
+        end
+    
+        define_method :after_adminable do
+          options[:afterwards].call if options[:afterwards].is_a?(Proc)
+        end
+
       end
     end
   end
@@ -21,7 +26,7 @@ module ActsAsAdminable
       base.send :alias_method_chain, :content_tag, :adminable
     end
     def is_adminable?
-      (controller.methods.include? "is_adminable?") ? controller.is_adminable? : false
+      controller.page_is_adminable?
     end
     def content_tag_with_adminable(name, content_or_options_with_block = nil, options = nil, escape = true, &block)
       if block_given?
@@ -62,6 +67,7 @@ module ActsAsAdminable
           form_remote_tag :url => '/admin/save_adminable_text', :html => {:style => 'display: none;', :id => key+'_form', :style => "position: absolute; z-index: 10; background-color: white; border: solid blue 2px; display: none; padding: 8px;"  } do
             hidden_field_tag(:content_key, key)     +
             hidden_field_tag(:object_id, object_id) +
+            hidden_field_tag(:referring_controller, params[:controller]) +
             text_input_html +
             submit_tag('Save Text', :style => 'position: absolute; right: 10px; bottom: 10px; width: 80px;') +
             button_to_function('Cancel',"$('#{key}_form').style.display='none'; $('#{key}').style.visibility='visible'", :style => 'position: absolute; right: 100px; bottom: 10px; width: 80px;')
@@ -95,19 +101,44 @@ module ActsAsAdminable
   # A custom controller that we'll use for routing trickiness.
   class AdminableController < ActionController::Base
     def save_text
-      #TODO: make this check the ADMIN flag before trusting input
-      if request.post? && !params[:content_key].blank?
-        key = params[:content_key].gsub(/\W+/,'')
-        value = params[:value].gsub('"','\"')
-        sql = %Q{INSERT INTO adminable_text(content_key, data_type, value) VALUES ('#{key}', 'text', \"#{value}\") ON DUPLICATE KEY UPDATE value = \"#{value}\"}
-        ActiveRecord::Base.connection.execute(sql) unless key.blank?  
-        render :update do |page|
-          page.replace_html key, markdown(params[:value]).gsub(/^<p>(.*)<\/p>$/,'\1').gsub(/  /,'&nbsp;&nbsp;')
-          page << "$('#{key}_form').style.display='none'"
+      if request.post? && !params[:content_key].blank? && !params[:referring_controller].blank?
+        controller_name = params[:referring_controller].gsub(/\W*/,'').camelize
+
+        begin 
+#          page_is_adminable = eval("#{controller_name}Controller.instance_variable_get(:@acts_as_adminable_active).call")
+          page_is_adminable = eval("#{controller_name}Controller.new.page_is_adminable?")
+        rescue #err on the side of prudence
+          RAILS_DEFAULT_LOGGER.warn "ActsAsAdminable found a malformed or unuseable referring_controller param while saving text"
+          page_is_adminable = false
+        end
+
+        if page_is_adminable
+          key = params[:content_key].gsub(/\W+/,'')
+          value = params[:value].gsub('"','\"')
+          sql = %Q{INSERT INTO adminable_text(content_key, data_type, value) VALUES ('#{key}', 'text', \"#{value}\") ON DUPLICATE KEY UPDATE value = \"#{value}\"}
+          ActiveRecord::Base.connection.execute(sql) unless key.blank?  
+          
+          #  :after is an optional bit of code that runs when the controller is finished
+          begin
+            eval(controller_name + 'Controller.new.after_adminable()')
+  #          after = eval(controller_name + 'Controller.instance_variable_get(:@acts_as_adminable_after)')
+  #          after.call if after.is_a?(Proc)
+          rescue Exception => e
+            RAILS_DEFAULT_LOGGER.warn "ActsAsAdminable encountered an error while executing the afterwards code: #{e.to_s}"
+          end
+          
+          render :update do |page|
+            page.replace_html key, markdown(params[:value]).gsub(/^<p>(.*)<\/p>$/,'\1').gsub(/  /,'&nbsp;&nbsp;')
+            page << "$('#{key}_form').style.display='none'"
+          end
+        else
+          render :nothing => true
         end
       else
         render :nothing => true
       end
     end
   end  
+
+
 end
