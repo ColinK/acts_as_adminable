@@ -5,18 +5,13 @@ module ActsAsAdminable
 
   module ActionControllerExtension
     def self.included(base)
-      base.extend ClassMethods
+      base.extend InstanceMethods
     end
-    module ClassMethods
+    module InstanceMethods
       def acts_as_adminable(options = {})
-        define_method :page_is_adminable? do
-          options.has_key?(:if) ? true : options[:id].call
-        end
-    
-        define_method :after_adminable do
-          options[:afterwards].call if options[:afterwards].is_a?(Proc)
-        end
-
+#        RAILS_DEFAULT_LOGGER.debug "COLIN - acts_as_adminable - #{session.inspect}"
+        @acts_as_adminable_active = options[:if]
+        @acts_as_adminable_after = options[:afterwards]
       end
     end
   end
@@ -26,7 +21,8 @@ module ActsAsAdminable
       base.send :alias_method_chain, :content_tag, :adminable
     end
     def is_adminable?
-      controller.page_is_adminable?
+      proc = controller.class.instance_variable_get(:@acts_as_adminable_active)
+      proc.is_a?(Proc) ? proc.call : false
     end
     def content_tag_with_adminable(name, content_or_options_with_block = nil, options = nil, escape = true, &block)
       if block_given?
@@ -105,26 +101,25 @@ module ActsAsAdminable
         controller_name = params[:referring_controller].gsub(/\W*/,'').camelize
 
         begin 
-#          page_is_adminable = eval("#{controller_name}Controller.instance_variable_get(:@acts_as_adminable_active).call")
-          page_is_adminable = eval("#{controller_name}Controller.new.page_is_adminable?")
-        rescue #err on the side of prudence
-          RAILS_DEFAULT_LOGGER.warn "ActsAsAdminable found a malformed or unuseable referring_controller param while saving text"
+          page_is_adminable = eval("#{controller_name}Controller.instance_variable_get(:@acts_as_adminable_active).call")
+        rescue Exception => e #err on the side of prudence
+          RAILS_DEFAULT_LOGGER.warn "ActsAsAdminable encountered a problem while determining adminibility: #{e.to_s}"
           page_is_adminable = false
         end
 
+        key = params[:content_key].gsub(/\W+/,'')
+        value = params[:value].gsub('"','\"')
+        sql = %Q{INSERT INTO adminable_text(content_key, data_type, value) VALUES ('#{key}', 'text', \"#{value}\") ON DUPLICATE KEY UPDATE value = \"#{value}\"}
+
         if page_is_adminable
-          key = params[:content_key].gsub(/\W+/,'')
-          value = params[:value].gsub('"','\"')
-          sql = %Q{INSERT INTO adminable_text(content_key, data_type, value) VALUES ('#{key}', 'text', \"#{value}\") ON DUPLICATE KEY UPDATE value = \"#{value}\"}
           ActiveRecord::Base.connection.execute(sql) unless key.blank?  
           
           #  :after is an optional bit of code that runs when the controller is finished
           begin
-            eval(controller_name + 'Controller.new.after_adminable()')
-  #          after = eval(controller_name + 'Controller.instance_variable_get(:@acts_as_adminable_after)')
-  #          after.call if after.is_a?(Proc)
+            after = eval(controller_name + 'Controller.instance_variable_get(:@acts_as_adminable_after)')
+            after.call if after.is_a?(Proc)
           rescue Exception => e
-            RAILS_DEFAULT_LOGGER.warn "ActsAsAdminable encountered an error while executing the afterwards code: #{e.to_s}"
+            RAILS_DEFAULT_LOGGER.warn "ActsAsAdminable encountered a problem while running afterwards code: #{e.to_s}"
           end
           
           render :update do |page|
@@ -132,7 +127,9 @@ module ActsAsAdminable
             page << "$('#{key}_form').style.display='none'"
           end
         else
-          render :nothing => true
+          render :update do |page|
+            page << "$('#{key}_form').style.display='none'"
+          end
         end
       else
         render :nothing => true
