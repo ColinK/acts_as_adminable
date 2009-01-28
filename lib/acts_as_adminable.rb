@@ -9,7 +9,6 @@ module ActsAsAdminable
     end
     module InstanceMethods
       def acts_as_adminable(options = {})
-#        RAILS_DEFAULT_LOGGER.debug "COLIN - acts_as_adminable - #{session.inspect}"
         @acts_as_adminable_active = options[:if]
         @acts_as_adminable_after = options[:afterwards]
       end
@@ -22,7 +21,7 @@ module ActsAsAdminable
     end
     def is_adminable?
       proc = controller.class.instance_variable_get(:@acts_as_adminable_active)
-      proc.is_a?(Proc) ? proc.call : false
+      proc.is_a?(Proc) ? proc.call(session) : false
     end
     def content_tag_with_adminable(name, content_or_options_with_block = nil, options = nil, escape = true, &block)
       if block_given?
@@ -101,7 +100,7 @@ module ActsAsAdminable
         controller_name = params[:referring_controller].gsub(/\W*/,'').camelize
 
         begin 
-          page_is_adminable = eval("#{controller_name}Controller.instance_variable_get(:@acts_as_adminable_active).call")
+          page_is_adminable = eval("#{controller_name}Controller.instance_variable_get(:@acts_as_adminable_active).call(session)")
         rescue Exception => e #err on the side of prudence
           RAILS_DEFAULT_LOGGER.warn "ActsAsAdminable encountered a problem while determining adminibility: #{e.to_s}"
           page_is_adminable = false
